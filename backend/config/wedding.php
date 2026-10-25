@@ -159,6 +159,7 @@ return [
     ],
 
     'upload' => [
+        'driver' => env('MEDIA_DRIVER', 'local'),
         'max_kb' => 10240,
         'mime_types' => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
     ],

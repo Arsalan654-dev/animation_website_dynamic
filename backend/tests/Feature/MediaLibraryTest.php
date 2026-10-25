@@ -5,8 +5,11 @@ namespace Tests\Feature;
 use App\Models\Invitation;
 use App\Models\MediaAsset;
 use App\Models\User;
+use App\Services\MediaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -147,6 +150,62 @@ class MediaLibraryTest extends TestCase
 
         $this->deleteJson('/api/v1/media/'.$asset->id)->assertForbidden();
         $this->assertDatabaseHas('media_assets', ['id' => $asset->id]);
+    }
+
+    public function test_vercel_blob_uploads_use_the_current_blob_api(): void
+    {
+        config([
+            'wedding.upload.driver' => 'vercel_blob',
+            'services.vercel_blob.token' => 'vercel_blob_rw_teststore123_secret',
+            'services.vercel_blob.access' => 'public',
+        ]);
+
+        Http::fake([
+            'vercel.com/api/blob/*' => Http::response([
+                'url' => 'https://teststore123.public.blob.vercel-storage.com/media/2026/10/hero.jpg',
+                'pathname' => 'media/2026/10/hero.jpg',
+            ]),
+        ]);
+
+        $asset = app(MediaService::class)->upload(
+            UploadedFile::fake()->image('hero.jpg', 1200, 800),
+            $this->admin()
+        );
+
+        $this->assertSame('vercel_blob', $asset->disk);
+        $this->assertSame(
+            'https://teststore123.public.blob.vercel-storage.com/media/2026/10/hero.jpg',
+            $asset->path
+        );
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
+            && str_starts_with($request->url(), 'https://vercel.com/api/blob/?pathname=media%2F')
+            && $request->hasHeader('x-api-version', '13')
+            && $request->hasHeader('x-vercel-blob-store-id', 'teststore123')
+            && $request->hasHeader('x-vercel-blob-access', 'public')
+            && $request->hasHeader('x-content-type', 'image/jpeg')
+            && $request->hasHeader('authorization', 'Bearer vercel_blob_rw_teststore123_secret'));
+    }
+
+    public function test_vercel_blob_deletes_use_the_current_blob_api(): void
+    {
+        config([
+            'services.vercel_blob.token' => 'vercel_blob_rw_teststore123_secret',
+        ]);
+
+        Http::fake([
+            'vercel.com/api/blob/delete' => Http::response(['deleted' => true]),
+        ]);
+
+        $url = 'https://teststore123.public.blob.vercel-storage.com/media/2026/10/hero.jpg';
+
+        app(MediaService::class)->deleteStoredFile('vercel_blob', $url);
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+            && $request->url() === 'https://vercel.com/api/blob/delete'
+            && $request['urls'] === [$url]
+            && $request->hasHeader('x-api-version', '13')
+            && $request->hasHeader('x-vercel-blob-store-id', 'teststore123'));
     }
 
     private function admin(): User

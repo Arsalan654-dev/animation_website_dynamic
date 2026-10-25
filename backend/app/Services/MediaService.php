@@ -6,6 +6,7 @@ use App\Models\MediaAsset;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -86,7 +87,7 @@ class MediaService
      */
     private function storeFile(UploadedFile $file, string $path, string $mime): array
     {
-        $driver = env('MEDIA_DRIVER', 'local');
+        $driver = config('wedding.upload.driver', 'local');
 
         if ($driver === 'vercel_blob') {
             return ['vercel_blob', $this->uploadToVercelBlob($file, $path, $mime)];
@@ -104,21 +105,24 @@ class MediaService
 
     private function uploadToVercelBlob(UploadedFile $file, string $path, string $mime): string
     {
-        $token = env('BLOB_READ_WRITE_TOKEN');
-
-        if (! $token) {
-            throw new RuntimeException('BLOB_READ_WRITE_TOKEN is not configured.');
-        }
+        $token = $this->vercelBlobToken();
+        $storeId = $this->vercelBlobStoreId($token);
 
         $response = Http::withToken($token)
-            ->withHeaders([
-                'x-api-version' => '12',
+            ->withHeaders($this->vercelBlobHeaders($storeId) + [
+                'x-vercel-blob-access' => config('services.vercel_blob.access', 'public'),
                 'x-content-type' => $mime,
                 'x-add-random-suffix' => '1',
                 'x-cache-control-max-age' => '31536000',
+                'x-content-length' => (string) $file->getSize(),
             ])
             ->withBody(file_get_contents($file->getRealPath()), $mime)
-            ->put('https://blob.vercel-storage.com/'.$path);
+            ->put($this->vercelBlobApiUrl().'/?'.http_build_query(
+                ['pathname' => $path],
+                '',
+                '&',
+                PHP_QUERY_RFC3986
+            ));
 
         if (! $response->successful()) {
             throw new RuntimeException('Vercel Blob upload failed: '.$response->body());
@@ -129,15 +133,63 @@ class MediaService
 
     private function deleteFromVercelBlob(string $url): void
     {
-        $token = env('BLOB_READ_WRITE_TOKEN');
+        $token = config('services.vercel_blob.token');
 
         if (! $token || ! str_starts_with($url, 'http')) {
             return;
         }
 
-        Http::withToken($token)
-            ->withHeaders(['x-api-version' => '12'])
-            ->post('https://blob.vercel-storage.com/delete', ['urls' => [$url]]);
+        $response = Http::withToken($token)
+            ->withHeaders($this->vercelBlobHeaders($this->vercelBlobStoreId($token)))
+            ->post($this->vercelBlobApiUrl().'/delete', ['urls' => [$url]]);
+
+        if (! $response->successful()) {
+            Log::warning('Vercel Blob delete failed.', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function vercelBlobHeaders(string $storeId): array
+    {
+        return [
+            'x-api-version' => '13',
+            'x-vercel-blob-store-id' => $storeId,
+            'x-api-blob-request-id' => $storeId.':'.now()->getTimestampMs().':'.Str::lower(Str::random(12)),
+            'x-api-blob-request-attempt' => '0',
+        ];
+    }
+
+    private function vercelBlobToken(): string
+    {
+        $token = config('services.vercel_blob.token');
+
+        if (! $token) {
+            throw new RuntimeException('BLOB_READ_WRITE_TOKEN is not configured.');
+        }
+
+        return $token;
+    }
+
+    private function vercelBlobStoreId(string $token): string
+    {
+        $storeId = explode('_', $token)[3] ?? '';
+
+        if ($storeId === '') {
+            throw new RuntimeException('BLOB_READ_WRITE_TOKEN does not contain a store ID.');
+        }
+
+        return $storeId;
+    }
+
+    private function vercelBlobApiUrl(): string
+    {
+        return rtrim(config('services.vercel_blob.api_url', 'https://vercel.com/api/blob'), '/');
     }
 
     /**

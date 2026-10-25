@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'vercel_blob' => [
+        'token' => env('BLOB_READ_WRITE_TOKEN'),
+        'access' => env('BLOB_ACCESS', 'public'),
+        'api_url' => env('BLOB_API_URL', 'https://vercel.com/api/blob'),
+    ],
+
 ];

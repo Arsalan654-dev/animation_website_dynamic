@@ -202,7 +202,7 @@ The container filesystem is ephemeral. Local uploads work in development, but pr
 2. Connect it to the backend project so `BLOB_READ_WRITE_TOKEN` is injected automatically. If your CLI/workflow does not inject it, add the token manually to the production environment.
 3. Set `MEDIA_DRIVER=vercel_blob` and redeploy after adding or changing the token.
 
-Uploads are sent to `blob.vercel-storage.com` and the returned public URL is stored on the media record. Demo images in `backend/public/demo/` are served directly from the image and do not need Blob.
+Uploads are sent to Vercel's current Blob API (`https://vercel.com/api/blob`, API version 13) using `BLOB_READ_WRITE_TOKEN`, and the returned public URL is stored on the media record. Demo images in `backend/public/demo/` are served directly from the image and do not need Blob.
 
 ### 5. CORS and links
 
@@ -226,6 +226,7 @@ Uploads are sent to `blob.vercel-storage.com` and the returned public URL is sto
 - Login attempts are rate-limited, inactive accounts are blocked, and admin tokens carry the `admin` ability.
 - Uploads are restricted by MIME type, size, and dimensions. Media deletion returns `409` with usage details while an asset is still referenced.
 - CSRF/cookie auth is intentionally not used for the SPA; bearer tokens avoid cross-site cookie requirements.
+- `backend/.vercelignore` and `frontend/.vercelignore` keep local `.env*` files, `vendor/`, `node_modules/`, and test artifacts out of Vercel deployment sources. Environment values belong in the Vercel project settings.
 
 ## License
 

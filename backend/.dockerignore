@@ -12,6 +12,7 @@
 AGENTS.md
 CLAUDE.md
 boost.json
+bootstrap/cache/*.php
 node_modules
 opencode.json
 public/storage

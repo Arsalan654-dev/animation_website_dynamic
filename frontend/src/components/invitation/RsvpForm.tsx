@@ -229,7 +229,7 @@ export function RsvpForm({ invitation, content }: RsvpFormProps) {
 
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-2xl">
-      {rsvp.require_guest_code ? (
+      {rsvp.require_guest_code || verifiedGuest ? (
         <div className="inv-card mb-5 p-5 sm:p-6">
           <p className="inv-label">Your personal invitation</p>
           {verifiedGuest ? (

@@ -2,10 +2,23 @@
 
 A dynamic wedding invitation platform: a Laravel API + React studio for designing, publishing, and managing multiple invitation websites without hardcoding a new React page for every couple.
 
+## Live deployment
+
+| Surface | URL |
+| --- | --- |
+| Studio and public sites | https://ever-after-studio-xi.vercel.app |
+| Laravel API | https://ever-after-studio-api.vercel.app |
+| All designs | https://ever-after-studio-xi.vercel.app/admin/designs |
+
+Both Vercel projects are connected to `Arsalan654-dev/animation_website_dynamic` on the `main` branch. Pushes to `main` trigger production deployments automatically. The backend project uses the `backend/` root directory and the frontend project uses `frontend/`.
+
 ## What is included
 
 - **Public invitation sites** at `/i/:slug` with an envelope opening sequence, hero, story, events, gallery, countdown, venue, RSVP, and configurable optional sections.
 - **Admin studio** with dashboard metrics, invitation CRUD/publish/duplicate/archive, a drag-and-drop section builder, theme tokens, animation presets, templates, media library, guest links, RSVP management, private notes, and CSV export.
+- **Visual design studio** at `/admin/invitations/:id/studio`: a live canvas using the same public renderer, section and layer navigation, component library, theme/template/media panels, responsive preview, undo/redo, draft save, publish, and version restore.
+- **Design save slots and library**: `/admin/designs` lists every design across invitations. Each invitation can hold many designs, but only one is active on the public site at a time.
+- **Standalone HTML export**: download any design as a complete `.html` wedding website with live Bootstrap and Google Fonts CDN links, every section, and the RSVP form. RSVP is one section of the exported site, not a separate format.
 - **Personal guest links** using `?guest=CODE`: the envelope is skipped, the page scrolls to RSVP, the guest code is verified, and the guest name is prefilled.
 - **Six seeded themes**, animation presets, templates, two published demo invitations, sample RSVPs, and demo media.
 - **Local-only demo admin**: `admin@everafter.test` / `EverAfter!2026`. These credentials are never seeded in production.
@@ -206,7 +219,7 @@ Uploads are sent to Vercel's current Blob API (`https://vercel.com/api/blob`, AP
 
 ### 5. CORS and links
 
-- `CORS_ALLOWED_ORIGINS` must exactly match the frontend origin (scheme + host, no trailing slash).
+- `CORS_ALLOWED_ORIGINS` can be the exact frontend origin (scheme + host, no trailing slash). Use `*` when standalone exported invitations must post RSVPs from arbitrary hosts; bearer auth remains explicit and credentials are disabled.
 - `FRONTEND_URL` is used for invitation `public_url` values and guest links.
 - `APP_URL` is used for backend-generated asset URLs.
 

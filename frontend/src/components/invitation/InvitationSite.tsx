@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { useSearchParams } from 'react-router-dom'
 import { ArrowUpRight, Heart } from 'lucide-react'
@@ -6,9 +6,11 @@ import { EnvelopeIntro } from '@/components/invitation/EnvelopeIntro'
 import { Ornament } from '@/components/invitation/Ornament'
 import { Reveal } from '@/components/invitation/Reveal'
 import { SectionRenderer } from '@/components/invitation/SectionRenderer'
+import { componentLabel } from '@/lib/componentRegistry'
+import { defaultDesignEffects, defaultDesignPage } from '@/lib/design'
 import { themeCssVars } from '@/lib/theme'
-import { cn, googleCalendarUrl } from '@/lib/utils'
-import type { PublicInvitation } from '@/types'
+import { assetUrl, cn, googleCalendarUrl } from '@/lib/utils'
+import type { PublicInvitation, PublicSection } from '@/types'
 
 const NAV_LABELS: Record<string, string> = {
   story: 'Our Story',
@@ -21,19 +23,66 @@ const NAV_LABELS: Record<string, string> = {
   countdown: 'Countdown',
 }
 
+interface EditorBridge {
+  selectedKey?: string | null
+  onSelect?: (key: string) => void
+}
+
+function CursorGlow() {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      const node = ref.current
+      if (!node) return
+      node.style.setProperty('--inv-cursor-x', `${event.clientX}px`)
+      node.style.setProperty('--inv-cursor-y', `${event.clientY}px`)
+    }
+    window.addEventListener('pointermove', move, { passive: true })
+    return () => window.removeEventListener('pointermove', move)
+  }, [])
+
+  return <div ref={ref} className="inv-cursor-glow" aria-hidden />
+}
+
+function ScrollProgress() {
+  const [progress, setProgress] = useState(0)
+
+  useEffect(() => {
+    const update = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight
+      setProgress(scrollable > 0 ? Math.min(1, Math.max(0, window.scrollY / scrollable)) : 0)
+    }
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [])
+
+  return <div className="inv-scroll-progress" style={{ transform: `scaleX(${progress})` }} aria-hidden />
+}
+
 export function InvitationSite({
   invitation,
   preview = false,
   startOpened = false,
+  forceEnvelope = false,
+  editor,
 }: {
   invitation: PublicInvitation
   preview?: boolean
   startOpened?: boolean
+  forceEnvelope?: boolean
+  editor?: EditorBridge
 }) {
   const storageKey = `everafter:opened:${invitation.slug}`
   const [searchParams] = useSearchParams()
   const guestCode = searchParams.get('guest')?.trim() ?? ''
   const [opened, setOpened] = useState(() => {
+    if (forceEnvelope) return false
     if (startOpened || guestCode || !invitation.envelope.enabled) return true
     try {
       return sessionStorage.getItem(storageKey) === '1'
@@ -42,22 +91,35 @@ export function InvitationSite({
     }
   })
 
-  const sections = useMemo(
+  const effects = { ...defaultDesignEffects, ...(invitation.design?.effects ?? {}) }
+  const page = { ...defaultDesignPage, ...(invitation.design?.page ?? {}) }
+  const animationsEnabled =
+    invitation.animations_enabled &&
+    !invitation.design?.animation?.disabled &&
+    effects.scroll_reveal
+
+  const visibleSections = useMemo(
     () => [...invitation.sections].filter((section) => section.is_visible).sort((a, b) => a.sort_order - b.sort_order),
     [invitation.sections],
   )
 
+  const sections = useMemo(
+    () =>
+      (editor ? [...invitation.sections] : visibleSections).sort((a, b) => a.sort_order - b.sort_order),
+    [editor, invitation.sections, visibleSections],
+  )
+
   const navLinks = useMemo(
     () =>
-      sections
+      visibleSections
         .filter((section) => NAV_LABELS[section.type])
         .slice(0, 6)
         .map((section) => ({ id: section.id, label: NAV_LABELS[section.type], anchor: `#section-${section.id}` })),
-    [sections],
+    [visibleSections],
   )
 
-  const rsvpSection = sections.find((section) => section.type === 'rsvp')
-  const hasHero = sections.some((section) => section.type === 'hero')
+  const rsvpSection = visibleSections.find((section) => section.type === 'rsvp')
+  const hasHero = visibleSections.some((section) => section.type === 'hero')
 
   useEffect(() => {
     if (opened) return
@@ -69,12 +131,12 @@ export function InvitationSite({
   }, [opened])
 
   useEffect(() => {
-    if (!guestCode || !rsvpSection) return
+    if (editor || !guestCode || !rsvpSection) return
     const timer = window.setTimeout(() => {
       document.getElementById(`section-${rsvpSection.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 550)
     return () => window.clearTimeout(timer)
-  }, [guestCode, rsvpSection])
+  }, [editor, guestCode, rsvpSection])
 
   const handleOpen = () => {
     setOpened(true)
@@ -86,10 +148,76 @@ export function InvitationSite({
   }
 
   const tokens = invitation.theme.tokens
+  const pageBackground = assetUrl(page.background_image?.url)
+  const headerPosition = editor ? 'absolute' : effects.sticky_nav ? 'fixed' : 'absolute'
+  const navBackground =
+    page.nav_style === 'transparent'
+      ? 'transparent'
+      : page.nav_style === 'solid'
+        ? 'var(--w-page-bg)'
+        : 'color-mix(in srgb, var(--w-page-bg) 88%, transparent)'
+
+  const renderSection = (section: PublicSection) => {
+    const node = (
+      <Reveal
+        key={section.studioKey ?? section.id}
+        animation={section.animation}
+        animationsEnabled={editor ? false : animationsEnabled}
+      >
+        <SectionRenderer section={section} invitation={invitation} />
+      </Reveal>
+    )
+
+    if (!editor) return node
+
+    const key = section.studioKey ?? String(section.id)
+    const selected = editor.selectedKey === key
+
+    return (
+      <div
+        key={key}
+        className={cn(
+          'inv-studio-section',
+          selected && 'is-selected',
+          !section.is_visible && 'is-hidden',
+        )}
+        data-studio-key={key}
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          editor.onSelect?.(key)
+        }}
+      >
+        <span className="inv-studio-label">
+          {componentLabel(section.type)}
+          {!section.is_visible ? <em>Hidden</em> : null}
+        </span>
+        {node}
+      </div>
+    )
+  }
 
   return (
-    <div className="invitation-root" style={themeCssVars(tokens)}>
-      <div className="inv-texture" />
+    <div
+      className={cn(
+        'invitation-root',
+        effects.hover_lift && 'inv-effect-hover',
+        effects.image_zoom && 'inv-effect-zoom',
+        effects.parallax && 'inv-effect-parallax',
+        effects.cursor_glow && 'inv-effect-cursor',
+      )}
+      style={themeCssVars(tokens)}
+    >
+      {pageBackground ? (
+        <div className="inv-page-bg" aria-hidden>
+          <img src={pageBackground} alt="" />
+          <span style={{ background: `rgba(12, 9, 7, ${Math.min(0.9, Math.max(0, page.overlay))})` }} />
+        </div>
+      ) : null}
+      {effects.grain ? <div className="inv-texture" /> : null}
+      {effects.cursor_glow && !editor ? <CursorGlow /> : null}
+      {effects.scroll_progress && !editor ? <ScrollProgress /> : null}
+      {invitation.design?.custom_css ? <style>{invitation.design.custom_css}</style> : null}
 
       <AnimatePresence>
         {!opened && invitation.envelope.enabled ? (
@@ -99,10 +227,15 @@ export function InvitationSite({
 
       <div className={cn('relative z-[1]', !opened && 'max-h-[100svh] overflow-hidden')} aria-hidden={!opened}>
         <header
-          className="fixed inset-x-0 top-0 z-40 border-b backdrop-blur-md"
+          className={cn(
+            'inset-x-0 top-0 z-40 border-b',
+            headerPosition,
+            page.nav_style === 'glass' && 'backdrop-blur-md',
+            page.nav_style === 'transparent' && 'border-transparent',
+          )}
           style={{
-            borderColor: 'var(--w-line)',
-            background: 'color-mix(in srgb, var(--w-page-bg) 88%, transparent)',
+            borderColor: page.nav_style === 'transparent' ? 'transparent' : 'var(--w-line)',
+            background: navBackground,
           }}
         >
           <div className="inv-container flex h-16 items-center justify-between gap-4">
@@ -170,17 +303,9 @@ export function InvitationSite({
             </section>
           ) : null}
 
-          {sections.map((section) => (
-            <Reveal
-              key={section.id}
-              animation={section.animation}
-              animationsEnabled={invitation.animations_enabled}
-            >
-              <SectionRenderer section={section} invitation={invitation} />
-            </Reveal>
-          ))}
+          {sections.map(renderSection)}
 
-          {sections.length === 0 ? (
+          {visibleSections.length === 0 && !editor ? (
             <section className="inv-section">
               <div className="inv-container py-16 text-center">
                 <Ornament type={tokens.ornaments.divider} width={100} />
@@ -193,7 +318,25 @@ export function InvitationSite({
           ) : null}
         </main>
 
-        <footer className="relative border-t" style={{ borderColor: 'var(--w-line)', background: 'var(--w-surface-alt)' }}>
+        <footer
+          className={cn(
+            'relative border-t',
+            editor && 'inv-studio-section',
+            editor?.selectedKey === 'global:footer' && 'is-selected',
+          )}
+          data-studio-key={editor ? 'global:footer' : undefined}
+          onClick={
+            editor
+              ? (event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  editor.onSelect?.('global:footer')
+                }
+              : undefined
+          }
+          style={{ borderColor: 'var(--w-line)', background: 'var(--w-surface-alt)' }}
+        >
+          {editor ? <span className="inv-studio-label">Footer &amp; contact</span> : null}
           <div className="inv-container py-14 text-center sm:py-16">
             <Ornament type={tokens.ornaments.divider} width={110} />
             <p className="inv-script mt-6 text-[clamp(2.6rem,6vw,4rem)] leading-none text-[var(--w-primary)]">
@@ -236,7 +379,7 @@ export function InvitationSite({
 
             <div className="mt-12 border-t pt-6" style={{ borderColor: 'var(--w-line)' }}>
               <p className="text-[0.52rem] uppercase tracking-[0.26em] text-[var(--w-muted)]">
-                Made with love · Ever After Studio
+                Made with love · {invitation.site_name || 'Ever After Studio'}
               </p>
               {invitation.couple.quote ? (
                 <p className="inv-body mx-auto mt-3 max-w-md font-display text-sm italic text-[var(--w-muted)]">

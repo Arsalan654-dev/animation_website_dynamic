@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Invitation extends Model
 {
@@ -65,6 +66,16 @@ class Invitation extends Model
     public function sections(): HasMany
     {
         return $this->hasMany(InvitationSection::class)->orderBy('sort_order');
+    }
+
+    public function designs(): HasMany
+    {
+        return $this->hasMany(InvitationDesign::class)->orderByDesc('updated_at');
+    }
+
+    public function activeDesign(): HasOne
+    {
+        return $this->hasOne(InvitationDesign::class)->where('is_active', true);
     }
 
     public function events(): HasMany

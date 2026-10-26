@@ -27,13 +27,14 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { OverviewTab } from '@/components/admin/invitation/OverviewTab'
 import { DesignTab } from '@/components/admin/invitation/DesignTab'
+import { DesignsTab } from '@/components/admin/invitation/DesignsTab'
 import { SectionsTab } from '@/components/admin/invitation/SectionsTab'
 import { EventsTab } from '@/components/admin/invitation/EventsTab'
 import { RsvpTab } from '@/components/admin/invitation/RsvpTab'
 import { GuestsTab } from '@/components/admin/invitation/GuestsTab'
 import type { AnimationPreset, ApiEnvelope, Invitation, Theme } from '@/types'
 
-type EditorTab = 'overview' | 'design' | 'sections' | 'events' | 'rsvp' | 'guests'
+type EditorTab = 'overview' | 'design' | 'designs' | 'sections' | 'events' | 'rsvp' | 'guests'
 type ConfirmAction = 'archive' | 'delete' | 'unpublish' | 'restore'
 
 export function InvitationEditorPage() {
@@ -164,6 +165,7 @@ export function InvitationEditorPage() {
   const tabs: Array<{ value: EditorTab; label: string; count?: number }> = [
     { value: 'overview', label: 'Overview' },
     { value: 'design', label: 'Design' },
+    { value: 'designs', label: 'Designs' },
     { value: 'sections', label: 'Sections', count: invitation.sections.length },
     { value: 'events', label: 'Events', count: invitation.events.length },
     { value: 'rsvp', label: 'RSVP' },
@@ -233,6 +235,12 @@ export function InvitationEditorPage() {
               className="btn-sm btn-outline !border-white/20 !text-cream/75 hover:!border-white/40 hover:!bg-white/5"
             >
               <Eye className="h-3.5 w-3.5" /> Preview
+            </Link>
+            <Link
+              to={`/admin/invitations/${invitation.id}/studio`}
+              className="btn-sm btn-outline !border-gold/40 !text-gold hover:!border-gold/70 hover:!bg-gold/10"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Design studio
             </Link>
             {invitation.status === 'published' ? (
               <a
@@ -327,6 +335,7 @@ export function InvitationEditorPage() {
 
       {tab === 'overview' ? <OverviewTab invitation={invitation} themes={themes} /> : null}
       {tab === 'design' ? <DesignTab invitation={invitation} themes={themes} presets={presets} /> : null}
+      {tab === 'designs' ? <DesignsTab invitation={invitation} themes={themes} /> : null}
       {tab === 'sections' ? <SectionsTab invitation={invitation} presets={presets} /> : null}
       {tab === 'events' ? <EventsTab invitation={invitation} /> : null}
       {tab === 'rsvp' ? <RsvpTab invitation={invitation} /> : null}
@@ -334,7 +343,7 @@ export function InvitationEditorPage() {
 
       <div className="mt-8 grid gap-3 border-t border-ink/10 pt-5 sm:grid-cols-3">
         {[
-          { icon: Palette, label: 'Design the world', value: invitation.theme?.name ?? 'Choose a theme', tab: 'design' as EditorTab },
+          { icon: Palette, label: 'Open the studio', value: 'Designs & save slots', tab: 'designs' as EditorTab },
           { icon: LayoutList, label: 'Shape the story', value: `${invitation.sections.length} sections`, tab: 'sections' as EditorTab },
           { icon: Mail, label: 'Meet your guests', value: `${invitation.stats?.rsvps_count ?? 0} replies`, tab: 'rsvp' as EditorTab },
         ].map((item) => (

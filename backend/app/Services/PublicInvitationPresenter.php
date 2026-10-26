@@ -56,7 +56,10 @@ class PublicInvitationPresenter
             MediaHydrator::referencedIds($invitation->couple_details ?? []),
             MediaHydrator::referencedIds($design ?? []),
             $invitation->events->pluck('image_media_id')->filter()->all(),
-            ...$sections->map(fn ($section) => MediaHydrator::referencedIds($section->content ?? []))->all(),
+            ...$sections->map(fn ($section) => array_merge(
+                MediaHydrator::referencedIds($section->content ?? []),
+                MediaHydrator::referencedIds(is_array($section->design) ? $section->design : []),
+            ))->all(),
         ));
 
         $assets = MediaAsset::query()->whereIn('id', $mediaIds)->get()->keyBy('id');
@@ -116,7 +119,9 @@ class PublicInvitationPresenter
                 'type' => $section->type,
                 'title' => $section->title,
                 'content' => MediaHydrator::hydrate($section->content ?? [], $assets),
-                'design' => $section->design,
+                'design' => is_array($section->design)
+                    ? MediaHydrator::hydrate($section->design, $assets)
+                    : $section->design,
                 'is_visible' => $section->is_visible,
                 'sort_order' => $section->sort_order,
                 'animation' => $animationsBySection[$section->id] ?? null,
@@ -156,6 +161,9 @@ class PublicInvitationPresenter
             'envelope' => $envelope,
             'design' => [
                 'animation' => $design['animation'] ?? null,
+                'effects' => $design['effects'] ?? null,
+                'page' => $design['page'] ?? null,
+                'custom_css' => $design['custom_css'] ?? null,
             ],
             'events' => $events,
             'sections' => $publicSections,

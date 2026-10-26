@@ -6,6 +6,7 @@ import {
   ExternalLink,
   Images,
   LayoutDashboard,
+  LayoutGrid,
   LayoutTemplate,
   LogOut,
   Mail,
@@ -32,6 +33,7 @@ const navigation = [
   {
     label: 'Design',
     items: [
+      { to: '/admin/designs', label: 'All designs', icon: LayoutGrid },
       { to: '/admin/themes', label: 'Themes', icon: Palette },
       { to: '/admin/templates', label: 'Templates', icon: LayoutTemplate },
       { to: '/admin/animations', label: 'Animations', icon: Sparkles },

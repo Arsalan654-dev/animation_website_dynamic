@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import {
   ArrowUpRight,
   CalendarDays,
@@ -14,9 +14,11 @@ import {
 import { Countdown } from '@/components/invitation/Countdown'
 import { Lightbox } from '@/components/invitation/Lightbox'
 import { Ornament, CornerBranch } from '@/components/invitation/Ornament'
+import { ParallaxImage } from '@/components/invitation/ParallaxImage'
 import { RsvpForm } from '@/components/invitation/RsvpForm'
 import {
   assetUrl,
+  cn,
   extractIframeSource,
   googleCalendarUrl,
   safeExternalUrl,
@@ -24,7 +26,7 @@ import {
   vimeoEmbedUrl,
   youtubeEmbedUrl,
 } from '@/lib/utils'
-import type { GalleryImage, LinkEntry, PublicEvent, PublicInvitation, PublicSection } from '@/types'
+import type { GalleryImage, LinkEntry, PublicEvent, PublicInvitation, PublicSection, SectionDesign } from '@/types'
 
 interface SectionProps {
   section: PublicSection
@@ -46,7 +48,7 @@ function SectionIntro({
 }) {
   if (!eyebrow && !heading && !intro) return null
   return (
-    <div className={align === 'center' ? 'mx-auto max-w-2xl text-center' : 'max-w-2xl'}>
+    <div className={cn('inv-section-intro', align === 'center' ? 'mx-auto max-w-2xl text-center' : 'max-w-2xl')}>
       {eyebrow ? <p className="inv-eyebrow">{eyebrow}</p> : null}
       {heading ? <h2 className={`inv-display mt-3 text-[clamp(2.2rem,5vw,3.6rem)] ${light ? 'text-[#fffaf2]' : ''}`}>{heading}</h2> : null}
       <Ornament type={invitationThemeDivider()} className="mt-5" width={96} />
@@ -63,6 +65,55 @@ function invitationThemeDivider(): string {
   return 'botanical'
 }
 
+type SectionFrameStyle = CSSProperties & Record<`--inv-${string}`, string | number | undefined>
+
+function SectionFrame({ section, children }: { section: PublicSection; children: ReactNode }) {
+  const design = (section.design ?? {}) as SectionDesign
+  const background = assetUrl(design.background_image?.url)
+  const overlay = typeof design.overlay === 'number' ? Math.min(0.9, Math.max(0, design.overlay)) : 0
+  const style: SectionFrameStyle = {}
+
+  if (typeof design.padding_y === 'number') {
+    style['--inv-section-pad'] = `${Math.max(0, design.padding_y)}px`
+  }
+  if (typeof design.max_width === 'number') {
+    style['--inv-content-max'] = `${Math.max(320, design.max_width)}px`
+  }
+  if (design.background_color) {
+    style['--inv-section-bg'] = design.background_color
+  }
+  if (design.text_color) {
+    style['--inv-section-text'] = design.text_color
+  }
+  if (background) {
+    style.backgroundImage = `url("${background.replace(/"/g, '\\"')}")`
+    style['--inv-section-bg'] = 'transparent'
+  }
+
+  return (
+    <div
+      className={cn(
+        'inv-section-wrap',
+        design.align === 'left' && 'inv-align-left',
+        design.text_color && 'inv-has-text-color',
+        design.hover_effect === 'lift' && 'inv-hover-lift',
+        design.hover_effect === 'zoom' && 'inv-hover-zoom',
+        design.hover_effect === 'glow' && 'inv-hover-glow',
+        design.hide_on_mobile && 'inv-hide-mobile',
+        design.hide_on_tablet && 'inv-hide-tablet',
+        design.hide_on_desktop && 'inv-hide-desktop',
+      )}
+      style={style}
+      data-section-type={section.type}
+    >
+      {background && overlay > 0 ? (
+        <span className="inv-section-overlay" style={{ background: `rgba(12, 9, 7, ${overlay})` }} aria-hidden />
+      ) : null}
+      {children}
+    </div>
+  )
+}
+
 function HeroSection({ section, invitation }: SectionProps) {
   const content = section.content
   const [lightbox, setLightbox] = useState<number | null>(null)
@@ -77,9 +128,16 @@ function HeroSection({ section, invitation }: SectionProps) {
     <section
       id={`section-${section.id}`}
       className="relative flex min-h-[100svh] flex-col items-center justify-center overflow-hidden px-5 py-24 text-center text-[#fffaf2]"
+      style={{ minHeight: 'var(--inv-hero-min-height, 100svh)', paddingBlock: 'var(--inv-section-pad, 6rem)' }}
     >
       {background ? (
-        <img src={background} alt={content.background?.alt ?? ''} className="absolute inset-0 h-full w-full object-cover inv-photo" />
+        <ParallaxImage
+          src={background}
+          alt={content.background?.alt ?? ''}
+          className="absolute inset-0"
+          imgClassName="inv-photo"
+          enabled={Boolean(invitation.design?.effects?.parallax)}
+        />
       ) : (
         <div
           className="absolute inset-0"
@@ -99,7 +157,7 @@ function HeroSection({ section, invitation }: SectionProps) {
       <CornerBranch className="absolute left-0 top-0 hidden text-[#e7d3ae]/45 opacity-70 sm:block" />
       <CornerBranch className="absolute right-0 top-0 hidden -scale-x-100 text-[#e7d3ae]/45 opacity-70 sm:block" />
 
-      <div className="relative z-10 flex w-full max-w-4xl flex-col items-center">
+      <div className="inv-hero-content relative z-10 flex w-full max-w-4xl flex-col items-center">
         <p className="text-[0.58rem] uppercase tracking-[0.45em] text-white/60">
           {content.eyebrow ?? invitation.couple.title ?? 'Together with their families'}
         </p>
@@ -167,7 +225,7 @@ function HeroSection({ section, invitation }: SectionProps) {
 
 function CountdownSection({ section, invitation }: SectionProps) {
   return (
-    <section id={`section-${section.id}`} className="inv-section" style={{ background: 'var(--w-surface-alt)' }}>
+    <section id={`section-${section.id}`} className="inv-section" style={{ background: 'var(--inv-section-bg, var(--w-surface-alt))' }}>
       <div className="inv-container mx-auto max-w-3xl text-center">
         <SectionIntro eyebrow={section.content.eyebrow} heading={section.content.heading} intro={section.content.intro} />
         <div className="mt-9">
@@ -253,7 +311,7 @@ function StorySection({ section, invitation }: SectionProps) {
 function QuoteSection({ section, invitation }: SectionProps) {
   const content = section.content
   return (
-    <section id={`section-${section.id}`} className="inv-section" style={{ background: 'var(--w-surface-alt)' }}>
+    <section id={`section-${section.id}`} className="inv-section" style={{ background: 'var(--inv-section-bg, var(--w-surface-alt))' }}>
       <div className="inv-container relative mx-auto max-w-3xl text-center">
         <span
           className="inv-display pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 text-[10rem] leading-none text-[var(--w-accent)]/20"
@@ -466,7 +524,7 @@ function GallerySection({ section, invitation }: SectionProps) {
   if (images.length === 0) return null
 
   return (
-    <section id={`section-${section.id}`} className="inv-section" style={{ background: 'var(--w-surface-alt)' }}>
+    <section id={`section-${section.id}`} className="inv-section" style={{ background: 'var(--inv-section-bg, var(--w-surface-alt))' }}>
       <div className="inv-container">
         <SectionIntro
           eyebrow={section.content.eyebrow ?? 'A few favourite moments'}
@@ -577,7 +635,7 @@ function RsvpSection({ section, invitation }: SectionProps) {
     <section
       id={`section-${section.id}`}
       className="inv-section"
-      style={{ background: 'var(--w-surface-alt)' }}
+      style={{ background: 'var(--inv-section-bg, var(--w-surface-alt))' }}
     >
       <div className="inv-container">
         <SectionIntro
@@ -669,7 +727,7 @@ function WeddingPartySection({ section }: SectionProps) {
   const members = Array.isArray(content.members) ? content.members : []
 
   return (
-    <section id={`section-${section.id}`} className="inv-section" style={{ background: 'var(--w-surface-alt)' }}>
+    <section id={`section-${section.id}`} className="inv-section" style={{ background: 'var(--inv-section-bg, var(--w-surface-alt))' }}>
       <div className="inv-container">
         <SectionIntro eyebrow={content.eyebrow ?? 'Standing beside us'} heading={content.heading} intro={content.intro} />
         <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
@@ -743,7 +801,7 @@ function TravelSection({ section }: SectionProps) {
   const content = section.content
   const hotels = Array.isArray(content.hotels) ? content.hotels : []
   return (
-    <section id={`section-${section.id}`} className="inv-section" style={{ background: 'var(--w-surface-alt)' }}>
+    <section id={`section-${section.id}`} className="inv-section" style={{ background: 'var(--inv-section-bg, var(--w-surface-alt))' }}>
       <div className="inv-container">
         <SectionIntro eyebrow={content.eyebrow ?? 'For guests from near & far'} heading={content.heading} intro={content.intro} />
         <div className="mt-9 grid gap-4 sm:grid-cols-2">
@@ -843,44 +901,66 @@ function ContactSection({ section }: SectionProps) {
 }
 
 export function SectionRenderer({ section, invitation }: SectionProps) {
+  let rendered: ReactNode = null
+
   switch (section.type) {
     case 'hero':
-      return <HeroSection section={section} invitation={invitation} />
+      rendered = <HeroSection section={section} invitation={invitation} />
+      break
     case 'countdown':
-      return <CountdownSection section={section} invitation={invitation} />
+      rendered = <CountdownSection section={section} invitation={invitation} />
+      break
     case 'story':
-      return <StorySection section={section} invitation={invitation} />
+      rendered = <StorySection section={section} invitation={invitation} />
+      break
     case 'quote':
-      return <QuoteSection section={section} invitation={invitation} />
+      rendered = <QuoteSection section={section} invitation={invitation} />
+      break
     case 'events':
-      return <EventsSection section={section} invitation={invitation} />
+      rendered = <EventsSection section={section} invitation={invitation} />
+      break
     case 'gallery':
-      return <GallerySection section={section} invitation={invitation} />
+      rendered = <GallerySection section={section} invitation={invitation} />
+      break
     case 'venue':
-      return <VenueSection section={section} invitation={invitation} />
+      rendered = <VenueSection section={section} invitation={invitation} />
+      break
     case 'rsvp':
-      return <RsvpSection section={section} invitation={invitation} />
+      rendered = <RsvpSection section={section} invitation={invitation} />
+      break
     case 'text':
-      return <TextSection section={section} invitation={invitation} />
+      rendered = <TextSection section={section} invitation={invitation} />
+      break
     case 'image_text':
-      return <ImageTextSection section={section} invitation={invitation} />
+      rendered = <ImageTextSection section={section} invitation={invitation} />
+      break
     case 'wedding_party':
-      return <WeddingPartySection section={section} invitation={invitation} />
+      rendered = <WeddingPartySection section={section} invitation={invitation} />
+      break
     case 'gifts':
-      return <GiftsSection section={section} invitation={invitation} />
+      rendered = <GiftsSection section={section} invitation={invitation} />
+      break
     case 'travel':
-      return <TravelSection section={section} invitation={invitation} />
+      rendered = <TravelSection section={section} invitation={invitation} />
+      break
     case 'video':
-      return <VideoSection section={section} invitation={invitation} />
+      rendered = <VideoSection section={section} invitation={invitation} />
+      break
     case 'contact':
-      return <ContactSection section={section} invitation={invitation} />
+      rendered = <ContactSection section={section} invitation={invitation} />
+      break
     case 'divider':
-      return (
+      rendered = (
         <section id={`section-${section.id}`} className="py-10 text-center">
           <Ornament type={invitation.theme.tokens.ornaments.divider} width={110} />
         </section>
       )
+      break
     default:
-      return null
+      rendered = null
   }
+
+  if (!rendered) return null
+
+  return <SectionFrame section={section}>{rendered}</SectionFrame>
 }

@@ -8,9 +8,12 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class InvitationService
 {
+    public function __construct(private readonly InvitationDesignService $designs) {}
+
     public function create(User $user, array $data): Invitation
     {
         return DB::transaction(function () use ($user, $data) {
@@ -53,6 +56,8 @@ class InvitationService
             if ($template && ($data['apply_template_sections'] ?? true)) {
                 $this->copyTemplateSections($invitation, $template);
             }
+
+            $this->designs->ensureDefaultDesign($invitation, $user);
 
             ActivityLogger::log($invitation, $user, 'created', 'Invitation created');
 
@@ -136,7 +141,7 @@ class InvitationService
         }
 
         if ($errors) {
-            throw \Illuminate\Validation\ValidationException::withMessages($errors);
+            throw ValidationException::withMessages($errors);
         }
 
         $invitation->update([
@@ -208,6 +213,8 @@ class InvitationService
                     'rsvp_enabled', 'sort_order',
                 ]));
             }
+
+            $this->designs->ensureDefaultDesign($copy, $user);
 
             ActivityLogger::log($copy, $user, 'duplicated', 'Invitation duplicated from '.$invitation->title);
 

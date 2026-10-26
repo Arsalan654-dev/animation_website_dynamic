@@ -32,6 +32,14 @@ const InvitationPreviewPage = lazy(() =>
     default: module.InvitationPreviewPage,
   })),
 )
+const DesignStudioPage = lazy(() =>
+  import('@/pages/admin/DesignStudioPage').then((module) => ({
+    default: module.DesignStudioPage,
+  })),
+)
+const DesignsPage = lazy(() =>
+  import('@/pages/admin/DesignsPage').then((module) => ({ default: module.DesignsPage })),
+)
 const ThemesPage = lazy(() =>
   import('@/pages/admin/ThemesPage').then((module) => ({ default: module.ThemesPage })),
 )
@@ -97,6 +105,7 @@ export default function App() {
             <Route path="invitations" element={<InvitationsPage />} />
             <Route path="invitations/new" element={<InvitationCreatePage />} />
             <Route path="invitations/:id/edit" element={<InvitationEditorPage />} />
+            <Route path="designs" element={<DesignsPage />} />
             <Route path="themes" element={<ThemesPage />} />
             <Route path="templates" element={<TemplatesPage />} />
             <Route path="animations" element={<AnimationsPage />} />
@@ -110,6 +119,15 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <InvitationPreviewPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/invitations/:id/studio"
+            element={
+              <ProtectedRoute>
+                <DesignStudioPage />
               </ProtectedRoute>
             }
           />

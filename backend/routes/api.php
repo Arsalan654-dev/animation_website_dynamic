@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\GuestController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\InvitationDesignController;
 use App\Http\Controllers\Api\V1\InvitationEventController;
 use App\Http\Controllers\Api\V1\InvitationSectionController;
 use App\Http\Controllers\Api\V1\MediaController;
@@ -77,6 +78,19 @@ Route::prefix('v1')->group(function () {
         Route::post('/invitations/{invitation}/archive', [InvitationController::class, 'archive']);
         Route::post('/invitations/{invitation}/restore', [InvitationController::class, 'restore']);
         Route::post('/invitations/{invitation}/duplicate', [InvitationController::class, 'duplicate']);
+
+        Route::get('/designs', [InvitationDesignController::class, 'library']);
+        Route::get('/invitations/{invitation}/designs', [InvitationDesignController::class, 'index']);
+        Route::post('/invitations/{invitation}/designs', [InvitationDesignController::class, 'store']);
+        Route::get('/invitations/{invitation}/designs/{design}', [InvitationDesignController::class, 'show']);
+        Route::patch('/invitations/{invitation}/designs/{design}', [InvitationDesignController::class, 'update']);
+        Route::post('/invitations/{invitation}/designs/{design}/activate', [InvitationDesignController::class, 'activate']);
+        Route::post('/invitations/{invitation}/designs/{design}/save-current', [InvitationDesignController::class, 'saveCurrent']);
+        Route::post('/invitations/{invitation}/designs/{design}/duplicate', [InvitationDesignController::class, 'duplicate']);
+        Route::delete('/invitations/{invitation}/designs/{design}', [InvitationDesignController::class, 'destroy']);
+        Route::get('/invitations/{invitation}/designs/{design}/versions', [InvitationDesignController::class, 'versions']);
+        Route::post('/invitations/{invitation}/designs/{design}/versions/{version}/restore', [InvitationDesignController::class, 'restoreVersion']);
+        Route::get('/invitations/{invitation}/designs/{design}/export', [InvitationDesignController::class, 'export']);
 
         Route::get('/invitations/{invitation}/sections', [InvitationSectionController::class, 'index']);
         Route::post('/invitations/{invitation}/sections', [InvitationSectionController::class, 'store']);

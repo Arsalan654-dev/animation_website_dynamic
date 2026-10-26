@@ -148,11 +148,28 @@ export interface Theme {
   updated_at?: string
 }
 
+export type SectionHoverEffect = 'none' | 'lift' | 'zoom' | 'glow'
+
+export interface SectionDesign {
+  background_color?: string
+  text_color?: string
+  padding_y?: number
+  max_width?: number
+  background_image?: MediaRef | null
+  overlay?: number
+  align?: 'left' | 'center'
+  hover_effect?: SectionHoverEffect
+  hide_on_mobile?: boolean
+  hide_on_tablet?: boolean
+  hide_on_desktop?: boolean
+  [key: string]: unknown
+}
+
 export interface TemplateSection {
   type: string
   title?: string | null
   content?: SectionContent
-  design?: Record<string, unknown> | null
+  design?: SectionDesign | null
   animation_config?: AnimationConfig | null
   is_visible?: boolean
   sort_order?: number
@@ -269,7 +286,7 @@ export interface InvitationSection {
   type: string
   title: string | null
   content: SectionContent
-  design: Record<string, unknown> | null
+  design: SectionDesign | null
   animation_preset_id: number | null
   animation_preset?: AnimationPreset | null
   animation_config: AnimationConfig | null
@@ -284,10 +301,12 @@ export interface PublicSection {
   type: string
   title: string | null
   content: SectionContent
-  design: Record<string, unknown> | null
+  design: SectionDesign | null
   is_visible: boolean
   sort_order: number
   animation: ResolvedAnimation | null
+  /** Client-only key used by the studio canvas; ignored by the public renderer. */
+  studioKey?: string
 }
 
 export interface DatePayload {
@@ -371,6 +390,23 @@ export interface EnvelopeConfig {
   seal_image?: MediaRef | null
 }
 
+export interface DesignEffects {
+  scroll_reveal: boolean
+  hover_lift: boolean
+  image_zoom: boolean
+  parallax: boolean
+  grain: boolean
+  sticky_nav: boolean
+  scroll_progress: boolean
+  cursor_glow: boolean
+}
+
+export interface DesignPage {
+  background_image: MediaRef | null
+  overlay: number
+  nav_style: 'glass' | 'solid' | 'transparent'
+}
+
 export interface DesignConfig {
   animation?: {
     preset?: string | null
@@ -378,6 +414,67 @@ export interface DesignConfig {
     overrides?: AnimationConfig
   }
   theme_tokens?: Partial<ThemeTokens>
+  effects?: Partial<DesignEffects>
+  page?: Partial<DesignPage>
+  custom_css?: string
+}
+
+export interface DesignSnapshotSection {
+  type: string
+  title: string | null
+  content: SectionContent
+  design: SectionDesign | null
+  animation_preset_id: number | null
+  animation_config: AnimationConfig | null
+  sort_order: number
+  is_visible: boolean
+  /** Client-only stable key used by the studio. */
+  studioKey?: string
+}
+
+export interface DesignSnapshot {
+  theme_id: number | null
+  design_config: DesignConfig
+  envelope: EnvelopeConfig
+  cover_image_path: string | null
+  sections: DesignSnapshotSection[]
+}
+
+export interface InvitationDesignSummary {
+  id: number
+  invitation_id: number
+  name: string
+  description: string | null
+  is_active: boolean
+  version: number
+  section_count: number
+  theme_id: number | null
+  cover_image_path: string | null
+  published_at: string | null
+  created_at: string | null
+  updated_at: string | null
+  invitation?: {
+    id: number
+    title: string
+    slug: string
+    status: string
+  } | null
+  creator?: { id: number; name: string } | null
+  updater?: { id: number; name: string } | null
+}
+
+export interface InvitationDesign extends InvitationDesignSummary {
+  snapshot: DesignSnapshot
+  versions_count?: number
+}
+
+export interface InvitationDesignVersion {
+  id: number
+  version: number
+  label: string | null
+  created_at: string | null
+  created_by?: { id: number; name: string } | null
+  snapshot?: DesignSnapshot
 }
 
 export interface InvitationStats {
